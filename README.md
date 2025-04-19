@@ -1,2 +1,2 @@
 # LUSM
-this repository is used to mining low utility sequence 
+this repository is used to mining low utility continual sequence 
