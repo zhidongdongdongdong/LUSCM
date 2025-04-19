@@ -15,6 +15,7 @@ public class LowUtilitySequenceMining {
     Set<List<Integer>> maxSequenceList = new LinkedHashSet<>();
     Set<List<Integer>> maxSequenceSet = new HashSet<>();
 
+    Set<List<Integer>> HighUtilitySequenceUp = new LinkedHashSet<>();
     Set<List<Integer>> hasKnownHighUtilitySequence = new LinkedHashSet<>();
     Set<List<Integer>> hasProcessedSequenceList = new LinkedHashSet<>();
     Set<List<Integer>> hasDeleteSequenceList = new LinkedHashSet<>();
@@ -41,11 +42,19 @@ public class LowUtilitySequenceMining {
 
     int maxLength;
 
-    public void runAlgorithm(String input, int max_utility, int maxLength, String output) throws IOException {
-
+    public void runAlgorithm(String input, int max_utility, int maxLength, BufferedWriter writer) throws IOException {
+        System.out.println("此处是低效用连续序列挖掘算法");
+        this.writer = writer;
         this.max_utility = max_utility;
-        this.maxLength=maxLength;
+        this.maxLength = maxLength;
         startTime = System.currentTimeMillis();
+        StringBuilder buffer = new StringBuilder();
+        buffer.append("max_utility:").append(max_utility).append("\n");
+        buffer.append("maxLength:").append(maxLength).append("\n");
+        buffer.append("processCoreAlgorithm_improved").append("\n");
+        buffer.append("processCoreAlgorithm").append("\n");
+        writer.write(buffer.toString());
+        writer.newLine();
         System.out.println("输出最大效用:" + max_utility);
         System.out.println("startTime:" + startTime);
         loadFile_sequence(input);
@@ -57,8 +66,15 @@ public class LowUtilitySequenceMining {
 //        getMaxSequence_delete(maxLength);
         runtime3 = System.currentTimeMillis() - startTime;
         processCoreAlgorithm();
+//        processCoreAlgorithm_improved();
         runtime = System.currentTimeMillis() - startTime;
+        printLowUtilitySequence();
         showStates();
+//        List<Integer> sequence=new ArrayList<>();
+//        sequence.add(10);
+//        sequence.add(11);
+//        System.out.println(hasKnownHighUtilitySequence.contains(sequence) == false);
+//        System.out.println("序列3的效用为："+countUtility(sequence));
     }
 
     private void myprint(int[] itemset, int uOfRoot) throws IOException {
@@ -81,22 +97,22 @@ public class LowUtilitySequenceMining {
 
     public void loadFile_sequence(String path) throws IOException {
         final int[] tidCount = {0};
-        final int[] item1={0};
-        final int[] indexOfItem={0};
+        final int[] item1 = {0};
+        final int[] indexOfItem = {0};
         Set<Integer> setOfItems = new TreeSet<>();
         Map<Integer, Integer[]> mapTidToItems = new LinkedHashMap<>();
         Map<Integer, Integer[]> mapTidToUtilities = new LinkedHashMap<>();
         sequenceId.add(0);
-        List<Integer> tidCountList=new ArrayList<>();
-        List<Integer> itemList=new ArrayList<>();
-        List<Integer> indexOfItemList=new ArrayList<>();
+        List<Integer> tidCountList = new ArrayList<>();
+        List<Integer> itemList = new ArrayList<>();
+        List<Integer> indexOfItemList = new ArrayList<>();
         try (BufferedReader myInput = new BufferedReader(new InputStreamReader(new FileInputStream(new File(path))))) {
             myInput.lines()
                     .filter(line -> !line.isEmpty() && line.charAt(0) != '#' && line.charAt(0) != '%' && line.charAt(0) != '@')
                     .forEach(thisLine -> {
                         String[] partitions = thisLine.split("SUtility:"); // 按 "SUtility:" 分割数据
                         if (partitions.length < 2) return;  // 如果没有有效的分割部分则跳过
-                        indexOfItem[0]=0;
+                        indexOfItem[0] = 0;
                         boolean key = false;
                         String[] itemUtilityPairs = partitions[0].trim().split(" ");  // 按空格分割项效用对
 
@@ -114,8 +130,8 @@ public class LowUtilitySequenceMining {
                             try {
                                 int item = Integer.parseInt(itemUtility[0].trim());
                                 int utility = Integer.parseInt(itemUtility[1].trim());
-                                item1[0]=item;
-                                if (utility >= max_utility) {
+                                item1[0] = item;
+                                if (utility > max_utility) {
                                     utility = -1;
                                     containsMaxUtility = true;
                                     tidCountList.add(tidCount[0]);
@@ -151,11 +167,15 @@ public class LowUtilitySequenceMining {
 
             this.mapTidToItems = mapTidToItems;
             this.mapTidToUtilities = mapTidToUtilities;
-            for(int i=0;i<tidCountList.size();i++){
-                addHasKnownHS(tidCountList.get(i),indexOfItemList.get(i),itemList.get(i));
+            for (int i = 0; i < tidCountList.size(); i++) {
+                addHasKnownHS(tidCountList.get(i), indexOfItemList.get(i), itemList.get(i));
             }
+            StringBuilder buffer = new StringBuilder();
+            buffer.append("输出高效用序列：").append(hasKnownHighUtilitySequence);
+            writer.write(buffer.toString());
             System.out.println("输出高效用序列");
             System.out.println(hasKnownHighUtilitySequence);
+            writer.newLine();
             printMapData("mapTidToItems", mapTidToItems);
             printMapData("mapTidToUtilities", mapTidToUtilities);
         } catch (IOException e) {
@@ -195,7 +215,7 @@ public class LowUtilitySequenceMining {
                                 int utility = Integer.parseInt(itemUtility[1].trim());
 
                                 // 如果效用大于等于 max_utility，则跳过该项和效用
-                                if (utility >= max_utility) {
+                                if (utility > max_utility) {
                                     containsMaxUtility = true;
                                     continue; // 跳过该项和效用，不存储
                                 } else {
@@ -262,7 +282,7 @@ public class LowUtilitySequenceMining {
                             int utility = Integer.parseInt(utilities[i]);
 //                            count++;
                             increment++;
-                            if (utility >= max_utility) {
+                            if (utility > max_utility) {
                                 utility = -1;
                                 containsMaxUtility = true;
                             } else {
@@ -297,40 +317,41 @@ public class LowUtilitySequenceMining {
 
     }
 
-    private void printMapData(String mapName, Map<Integer, Integer[]> mapData) {
+    private void printMapData(String mapName, Map<Integer, Integer[]> mapData) throws IOException {
+        StringBuilder buffer = new StringBuilder();
+        buffer.append("Printing:" + mapName + ":\n");
         System.out.println("Printing " + mapName + ":");
         for (Map.Entry<Integer, Integer[]> entry : mapData.entrySet()) {
+            buffer.append("Line" + entry.getKey() + ":");
+            buffer.append(Arrays.toString(entry.getValue()) + "\n");
             System.out.print("Line " + entry.getKey() + ": ");
             System.out.println(Arrays.toString(entry.getValue()));
         }
+        writer.write(buffer.toString());
+        writer.newLine();
     }
 
-    public void addHasKnownHS(int indexOfSequence,int indexOfItem,int item) {
+    public void addHasKnownHS(int indexOfSequence, int indexOfItem, int item) {
 
-        List<Integer> highUSequence=new ArrayList<>();
-        Integer[] sequenceAll=this.mapTidToItems.get(indexOfSequence);
-        if(indexOfItem-this.maxLength+1<0){
-            for(int i=0;i<=indexOfItem+this.maxLength&&i< sequenceAll.length;i++){
-                highUSequence=new ArrayList<>();
-                for(int j=0;j<this.maxLength;j++)
-                {
-                    highUSequence.add(sequenceAll[i+j]);
-                    if(!hasKnownHighUtilitySequence.contains(highUSequence)&&i<=indexOfItem&&j>=indexOfItem)
-                    {
+        List<Integer> highUSequence = new ArrayList<>();
+        Integer[] sequenceAll = this.mapTidToItems.get(indexOfSequence);
+        if (indexOfItem - this.maxLength + 1 < 0) {
+            for (int i = 0; i <= indexOfItem + this.maxLength && i < sequenceAll.length; i++) {
+                highUSequence = new ArrayList<>();
+                for (int j = 0; j < this.maxLength && ((i + j) < sequenceAll.length); j++) {
+                    highUSequence.add(sequenceAll[i + j]);
+                    if (!hasKnownHighUtilitySequence.contains(highUSequence) && i <= indexOfItem && (i + j) >= indexOfItem) {
                         this.candidatesCount++;
                         hasKnownHighUtilitySequence.add(new ArrayList<>(highUSequence));
                     }
                 }
             }
-        }
-        else{
-            for(int i=indexOfItem-this.maxLength+1;i<=indexOfItem+this.maxLength&&i<sequenceAll.length;i++){
-                highUSequence=new ArrayList<>();
-                for(int j=0;j<this.maxLength&&(i+j)<sequenceAll.length;j++)
-                {
-                    highUSequence.add(sequenceAll[i+j]);
-                    if(!hasKnownHighUtilitySequence.contains(highUSequence)&&highUSequence.contains(item))
-                    {
+        } else {
+            for (int i = indexOfItem - this.maxLength + 1; i <= indexOfItem + this.maxLength && i < sequenceAll.length; i++) {
+                highUSequence = new ArrayList<>();
+                for (int j = 0; j < this.maxLength && (i + j) < sequenceAll.length; j++) {
+                    highUSequence.add(sequenceAll[i + j]);
+                    if (!hasKnownHighUtilitySequence.contains(highUSequence) && highUSequence.contains(item)) {
                         this.candidatesCount++;
                         hasKnownHighUtilitySequence.add(new ArrayList<>(highUSequence));
                     }
@@ -387,7 +408,9 @@ public class LowUtilitySequenceMining {
         runtime5 = System.currentTimeMillis() - startTime;
     }
 
-    public void getMaxSequence(int maxLength) {
+    public void getMaxSequence(int maxLength) throws IOException {
+        StringBuilder buffer = new StringBuilder();
+        buffer.append("当前运行到 preprocess\n");
         System.out.println("当前运行到 preprocess");
         int countBit = 0;
 
@@ -430,20 +453,28 @@ public class LowUtilitySequenceMining {
             }
         }
         System.out.println("333");
+        buffer.append("输出最大序列");
+        buffer.append(maxSequenceList);
         System.out.println("输出最大序列");
         System.out.println(maxSequenceList);
+        writer.write(buffer.toString());
+        writer.newLine();
         runtime5 = System.currentTimeMillis() - startTime;
     }
 
-    public void processCoreAlgorithm() {
+    public void processCoreAlgorithm() throws IOException {
         System.out.println("当前运行到coreAlg");
         int size = maxSequenceList.size();
         int num_now = 0;
         for (List<Integer> sequence : maxSequenceList) {
             System.out.println(num_now + "/" + size);
+            StringBuilder buffer = new StringBuilder();
+            buffer.append(num_now + "/" + size);
+            writer.write(buffer.toString());
+            writer.newLine();
             num_now++;
             int utilityOfSequence = countUtility(sequence);
-            if (utilityOfSequence <= max_utility && hasProcessedSequenceList.contains(sequence) == false&&hasKnownHighUtilitySequence.contains(sequence)==false) {
+            if (utilityOfSequence <= max_utility && hasProcessedSequenceList.contains(sequence) == false && hasKnownHighUtilitySequence.contains(sequence) == false) {
                 processLowUtilitySequence(sequence, utilityOfSequence);
             } else {
 //                cut2(sequence);
@@ -452,11 +483,15 @@ public class LowUtilitySequenceMining {
 //                LUSM(sequence);
             }
         }
-        printLowUtilitySequence();
+//        printLowUtilitySequence();
     }
 
-    private void processLowUtilitySequence(List<Integer> sequence, int utility) {
-        if (!hasProcessedSequenceList.contains(sequence)&&hasKnownHighUtilitySequence.contains(sequence)==false) {
+    private void processLowUtilitySequence(List<Integer> sequence, int utility) throws IOException {
+        if (!hasProcessedSequenceList.contains(sequence) && hasKnownHighUtilitySequence.contains(sequence) == false) {
+            StringBuilder buffer = new StringBuilder();
+            buffer.append("获得低效用连续序列：" + sequence).append("\n");
+            writer.write(buffer.toString());
+            writer.newLine();
             System.out.println("获得低效用序列：" + sequence);
             hasProcessedSequenceList.add(sequence);
             candidatesCount++;
@@ -469,6 +504,113 @@ public class LowUtilitySequenceMining {
         }
     }
 
+    private void processLowUtilitySequence_improved(List<Integer> sequence, int utility) throws IOException {
+        if (!hasProcessedSequenceList.contains(sequence) && hasKnownHighUtilitySequence.contains(sequence) == false) {
+            System.out.println("获得低效用序列：" + sequence);
+            StringBuilder buffer = new StringBuilder();
+            buffer.append("获得低效用序列：" + sequence).append("\n");
+            writer.write(buffer.toString());
+            writer.newLine();
+            hasProcessedSequenceList.add(sequence);
+            candidatesCount++;
+            patternCount++;
+            lowUtilityPattern.put(sequence, utility);
+//            lowUtilityPattern.put(sequence, utility);
+//            LUSM(sequence);
+//            cut(sequence);
+
+        }
+    }
+
+    public void processCoreAlgorithm_improved() throws IOException {
+        System.out.println("当前运行到coreAlg改进版");
+        int size = maxSequenceList.size();
+        int utilityOfSequence = -1;
+        int num_now = 0;
+        for (List<Integer> sequence : maxSequenceList) {
+            StringBuilder buffer = new StringBuilder();
+            buffer.append(num_now + "/" + size);
+            System.out.println(num_now + "/" + size);
+            writer.write(buffer.toString());
+            writer.newLine();
+            num_now++;
+            List<List<Integer>> utilities = new ArrayList<>();
+            utilities = getUtilities(sequence);
+            utilityOfSequence = countUtility(sequence);
+            if (utilityOfSequence <= max_utility) {
+                processLowUtilitySequence_improved(sequence, utilityOfSequence);
+            }
+            LUM1(0, sequence, utilities);
+//            int utilityOfSequence = countUtility(sequence);
+//            if (utilityOfSequence <= max_utility && hasProcessedSequenceList.contains(sequence) == false&&hasKnownHighUtilitySequence.contains(sequence)==false) {
+//                processLowUtilitySequence(sequence, utilityOfSequence);
+//            } else {
+////                cut2(sequence);
+//                hasDeleteSequenceList.add(sequence);
+//                cut(sequence);
+////                LUSM(sequence);
+//            }
+        }
+//        printLowUtilitySequence();
+    }
+
+    public void LUM1(int itemNum, List<Integer> sequence, List<List<Integer>> utilities) throws IOException {
+        List<Integer> sequenceNew = new ArrayList<>();
+        int utilityOfSequence_father = 0;
+        int utilityOfSequence = 0;
+        List<List<Integer>> utilitiesNew = new ArrayList<>();
+        if (itemNum == 0) {
+            sequenceNew.add(sequence.get(0));
+            for (List<Integer> utility : utilities) {
+                utilityOfSequence_father += utility.get(0);
+            }
+            if (utilityOfSequence_father <= max_utility) {
+                utilityOfSequence = countUtility(sequenceNew);
+                if (utilityOfSequence <= max_utility) {
+                    processLowUtilitySequence_improved(sequenceNew, utilityOfSequence);
+                }
+                //            保留该项
+                if (itemNum + 1 < sequence.size()) {
+                    LUM1(itemNum + 1, sequence, utilities);
+                }
+//            不保留该项
+                if (sequence.size() != 1) {
+                    List<Integer> sequenceNewCutFirst = new ArrayList<>(sequence);
+                    sequenceNewCutFirst.remove(0);
+                    List<List<Integer>> utilitiesNew1 = new ArrayList<>(utilities);
+                    for (List<Integer> utility : utilitiesNew1) {
+                        utility.remove(0);
+                    }
+                    LUM1(0, sequenceNewCutFirst, utilitiesNew1);
+                }
+            }
+        } else {
+            int utilityOfNewSequence = 0;
+            for (int i = 0; i <= itemNum; i++) {
+                sequenceNew.add(sequence.get(i));
+            }
+            for (List<Integer> utility : utilities) {
+                List<Integer> utilityNew = new ArrayList<>();
+                for (int i = 0; i <= itemNum; i++) {
+                    utilityNew.add(utility.get(i));
+                    utilityOfNewSequence += utility.get(i);
+                }
+                utilitiesNew.add(utilityNew);
+            }
+            if (utilityOfNewSequence <= max_utility) {
+                utilityOfSequence = countUtility(sequenceNew);
+                if (utilityOfSequence <= max_utility) {
+                    processLowUtilitySequence_improved(sequenceNew, utilityOfSequence);
+                }
+                //保留该项
+                if (itemNum + 1 < sequence.size()) {
+                    LUM1(itemNum + 1, sequence, utilities);
+                }
+            }
+        }
+
+//        System.out.println("输出成功！");
+    }
 //    public void cut2(List<Integer> sequence) {
 //        if (sequence.size() > 1) {
 //            List<Integer> subFirstSequence = new ArrayList<>(sequence);
@@ -498,21 +640,21 @@ public class LowUtilitySequenceMining {
 //        }
 //    }
 
-    public void cut(List<Integer> sequence) {
+    public void cut(List<Integer> sequence) throws IOException {
         if (sequence.size() > 1) {
             List<List<Integer>> utilities = getUtilities(sequence);
             cutFirst(sequence, utilities);
             cutLast(sequence, utilities);
         } else {
 //            System.out.println("处理一个项");
-            if (hasProcessedSequenceList.contains(sequence) == false&&hasKnownHighUtilitySequence.contains(sequence)==false) {
+            if (hasProcessedSequenceList.contains(sequence) == false && hasKnownHighUtilitySequence.contains(sequence) == false) {
                 LUSMItem(sequence);
                 hasProcessedSequenceList.add(sequence);
             }
         }
     }
 
-    public void cutSequenceAll(List<Integer> sequence, List<List<Integer>> utilities) {
+    public void cutSequenceAll(List<Integer> sequence, List<List<Integer>> utilities) throws IOException {
         if (sequence.size() > 1) {
             cutSequence(sequence, utilities, true);  // 剪除首项
             cutSequence(sequence, utilities, false); // 剪除尾项
@@ -523,14 +665,14 @@ public class LowUtilitySequenceMining {
         }
     }
 
-    private void processSingleElementSequence(List<Integer> sequence) {
-        if (hasProcessedSequenceList.contains(sequence) == false&&hasKnownHighUtilitySequence.contains(sequence)==false) {
+    private void processSingleElementSequence(List<Integer> sequence) throws IOException {
+        if (hasProcessedSequenceList.contains(sequence) == false && hasKnownHighUtilitySequence.contains(sequence) == false) {
             LUSMItem(sequence);
             hasProcessedSequenceList.add(sequence);
         }
     }
 
-    private void cutSequence(List<Integer> sequence, List<List<Integer>> utilities, boolean isFirst) {
+    private void cutSequence(List<Integer> sequence, List<List<Integer>> utilities, boolean isFirst) throws IOException {
         List<List<Integer>> newUtilities = new ArrayList<>();
         List<Integer> newSequence;
         for (List<Integer> entry : utilities) {
@@ -548,7 +690,7 @@ public class LowUtilitySequenceMining {
                 : sequence.subList(0, sequence.size() - 1);
 
         int allUtilities = countUtility_FL(newUtilities);
-        if (allUtilities <= max_utility) {
+        if (allUtilities <= max_utility && hasKnownHighUtilitySequence.contains(newSequence) == false) {
 //            LUSM(new ArrayList<>(newSequence));
             processSubSequence(new ArrayList<>(newSequence));
         } else {
@@ -557,14 +699,14 @@ public class LowUtilitySequenceMining {
         }
     }
 
-    public void LUSMItem(List<Integer> sequence) {
+    public void LUSMItem(List<Integer> sequence) throws IOException {
         int utility = countUtility(sequence);
         if (utility <= max_utility) {
             processLowUtilitySequence(sequence, utility);
         }
     }
 
-    public void cutFirst(List<Integer> sequence, List<List<Integer>> utilities) {
+    public void cutFirst(List<Integer> sequence, List<List<Integer>> utilities) throws IOException {
         List<List<Integer>> newUtilities = new ArrayList<>();
         int allUtilities = 0;
         int start = 1;
@@ -577,7 +719,7 @@ public class LowUtilitySequenceMining {
         allUtilities = countUtility_FL(newUtilities);
         List<Integer> sequenceFirst = new ArrayList<>();
         sequenceFirst.addAll(sequence.subList(1, sequence.size()));
-        if (allUtilities <= max_utility) {
+        if (allUtilities <= max_utility && hasKnownHighUtilitySequence.contains(sequenceFirst) == false) {
 //            processSubSequence(new ArrayList<>(sequenceFirst));
             LUSM(sequenceFirst);
         } else {
@@ -594,7 +736,7 @@ public class LowUtilitySequenceMining {
     }
 
 
-    public void cutLast(List<Integer> sequence, List<List<Integer>> utilities) {
+    public void cutLast(List<Integer> sequence, List<List<Integer>> utilities) throws IOException {
         List<List<Integer>> newUtilities = new ArrayList<>();
 
         int allUtilities = 0;
@@ -607,7 +749,7 @@ public class LowUtilitySequenceMining {
         allUtilities = countUtility_FL(newUtilities);
         List<Integer> sequenceLast = new ArrayList<>();
         sequenceLast.addAll(sequence.subList(0, sequence.size() - 1));
-        if (allUtilities <= max_utility) {
+        if (allUtilities <= max_utility && hasKnownHighUtilitySequence.contains(sequenceLast) == false) {
             LUSM(sequenceLast);
         } else {
             hasDeleteSequenceList.add(sequenceLast);
@@ -736,7 +878,20 @@ public class LowUtilitySequenceMining {
 
     }
 
-    public void showStates() {
+    public void showStates() throws IOException {
+        StringBuilder buffer = new StringBuilder();
+        buffer.append("存储数据运行时间为：" + (double) runtime2 / 1000 + "s").append("\n");
+        buffer.append("获得项的位图运行时间为：" + (double) runtime4 / 1000 + "s").append("\n");
+        buffer.append("获得最长序列运行时间为：" + (double) runtime5 / 1000 + "s").append("\n");
+        buffer.append("预处理运行时间为：" + (double) runtime3 / 1000 + "s").append("\n");
+        buffer.append("运行时间为：" + (double) runtime / 1000 + "s").append("\n");
+        buffer.append("运行内存为：" + MemoryLogger.getInstance().getMaxMemory() + "MB").append("\n");
+        buffer.append("总的内存为：" + (double) Runtime.getRuntime().totalMemory() / 1024d / 1024d + "MB").append("\n");
+        buffer.append("空闲内存为：" + (double) Runtime.getRuntime().freeMemory() / 1024d / 1024d + "MB").append("\n");
+        buffer.append("候选集数目为：" + candidatesCount).append("\n");
+        buffer.append("模式数目为：" + patternCount).append("\n");
+        writer.write(buffer.toString());
+        writer.newLine();
         System.out.println("存储数据运行时间为：" + (double) runtime2 / 1000 + "s");
         System.out.println("获得项的位图运行时间为：" + (double) runtime4 / 1000 + "s");
         System.out.println("获得最长序列运行时间为：" + (double) runtime5 / 1000 + "s");
@@ -749,8 +904,8 @@ public class LowUtilitySequenceMining {
         System.out.println("模式数目为：" + patternCount);
     }
 
-    public void LUSM(List<Integer> sequence) {
-        if (!hasProcessedSequenceList.contains(sequence) && !hasDeleteSequenceList.contains(sequence)&&hasKnownHighUtilitySequence.contains(sequence)==false) {
+    public void LUSM(List<Integer> sequence) throws IOException {
+        if (!hasProcessedSequenceList.contains(sequence) && !hasDeleteSequenceList.contains(sequence) && hasKnownHighUtilitySequence.contains(sequence) == false) {
             if (countUtility(sequence) <= max_utility)
                 processLowUtilitySequence(sequence, countUtility(sequence));
         }
@@ -771,8 +926,8 @@ public class LowUtilitySequenceMining {
     }
 
 
-    private void processSubSequence(List<Integer> subSequence) {
-        if (subSequence.size() > 1 && !hasProcessedSequenceList.contains(subSequence)&&hasKnownHighUtilitySequence.contains(subSequence)==false) {
+    private void processSubSequence(List<Integer> subSequence) throws IOException {
+        if (subSequence.size() > 1 && !hasProcessedSequenceList.contains(subSequence) && hasKnownHighUtilitySequence.contains(subSequence) == false) {
             int utility = countUtility(subSequence);
 //            hasProcessedSequenceList.add(subSequence);
             if (utility <= max_utility && lowUtilityPattern.get(subSequence) == null) {
@@ -788,17 +943,22 @@ public class LowUtilitySequenceMining {
         }
     }
 
-    public void printLowUtilitySequence() {
-
+    public void printLowUtilitySequence() throws IOException {
+        StringBuilder buffer = new StringBuilder();
+        buffer.append("低效用连续序列有：" + patternCount + "个").append("\n");
         System.out.println("低效用序列有:" + patternCount + "个");
         if (patternCount > 0) {
+            buffer.append("输出低效用序列：").append("\n");
             System.out.println("输出低效用序列：");
             for (Map.Entry<List<Integer>, Integer> entry : lowUtilityPattern.entrySet()) {
+                buffer.append("序列：" + entry.getKey() + "  效用：" + entry.getValue()).append("\n");
                 System.out.println("序列：" + entry.getKey() + "  效用：" + entry.getValue());
             }
         }
         System.out.println("输出低效用序列的数量：" + lowUtilityPattern.size());
-
+        buffer.append("输出低效用序列的数量：" + lowUtilityPattern.size()).append("\n");
+        writer.write(buffer.toString());
+        writer.newLine();
     }
 
     private void sortTrans(String input) throws IOException {
